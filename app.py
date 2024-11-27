@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from pyembroidery import read, write_pes, EmbThread, EmbPattern
 import os
 import urllib.parse
+import json
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -25,12 +26,15 @@ def create_pes():
         return jsonify({"error": "Missing DST file in request"}), 400
 
     dst_file = request.files['dst_file']  # The DST file uploaded by the user
-    new_thread_colors = request.json.get('new_thread_colors')  # New colors in HEX format, e.g., ["#FF5733", "#33FF57"]
+    new_thread_colors = request.form.get('new_thread_colors')  # New colors in HEX format, e.g., ["#FF5733", "#33FF57"]
 
     if not new_thread_colors:
         return jsonify({"error": "Missing required parameter: 'new_thread_colors'"}), 400
 
     try:
+        # Parse the new_thread_colors from the JSON string
+        new_thread_colors = json.loads(new_thread_colors)  # Convert from string to list
+
         # Save the uploaded DST file temporarily
         dst_file_path = os.path.join(app.config['UPLOAD_FOLDER'], dst_file.filename)
         dst_file.save(dst_file_path)
