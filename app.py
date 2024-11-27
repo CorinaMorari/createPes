@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from pyembroidery import EmbThread, EmbPattern, read_pes, write_pes
-from io import BytesIO  # Import BytesIO to handle PES file as a file-like object
 import os
 import urllib.parse
 import requests
@@ -9,6 +8,10 @@ app = Flask(__name__)
 
 # Set up the upload folder for storing generated PES files
 app.config['UPLOAD_FOLDER'] = './uploads'
+
+# Ensure the upload folder exists
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # Route to update thread colors in a PES file
 @app.route('/update-thread-colors', methods=['POST'])
@@ -30,14 +33,8 @@ def update_thread_colors():
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to download PES file: {str(e)}"}), 400
 
-    # Wrap the downloaded PES file content in a file-like object (BytesIO)
-    pes_file_io = BytesIO(pes_file_content)
-
     # Read the PES file using pyembroidery
-    try:
-        pattern = read_pes(pes_file_io)
-    except Exception as e:
-        return jsonify({"error": f"Failed to read PES file: {str(e)}"}), 400
+    pattern = read_pes(pes_file_content)
 
     # Update threads based on the hex color changes
     for i, hex_color in enumerate(hex_colors):
@@ -48,6 +45,11 @@ def update_thread_colors():
     # Save the modified PES file to the upload folder
     pes_filename = 'updated_pattern.pes'
     pes_file_path = os.path.join(app.config['UPLOAD_FOLDER'], pes_filename)
+
+    # Make sure the upload folder exists before writing
+    if not os.path.exists(os.path.dirname(pes_file_path)):
+        os.makedirs(os.path.dirname(pes_file_path))
+
     write_pes(pattern, pes_file_path)
 
     # Generate the URL for accessing the updated PES file
