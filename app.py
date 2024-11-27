@@ -61,6 +61,7 @@ def create_pes():
             if i < len(new_rgb_colors):  # Ensure the new colors list matches the thread count
                 new_rgb = new_rgb_colors[i]
                 print(f"Updating thread {i} with RGB: {new_rgb}")  # Debugging line to see RGB values
+                # Create a new EmbThread object with updated color
                 new_thread = EmbThread(new_rgb[0], new_rgb[1], new_rgb[2])
                 updated_threads.append(new_thread)
             else:
