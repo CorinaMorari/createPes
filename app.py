@@ -39,13 +39,14 @@ def create_pattern(stitches, threads, hex_colors):
     for stitch in stitches:
         x, y, command = stitch['x'], stitch['y'], stitch['command']
         
-        # Add each stitch (if command is 'stitch', we need to specify it correctly)
-        if command == 'stitch':
-            pattern.add_stitch(x, y)
-        elif command == 'jump':
-            pattern.add_jump(x, y)
-        # If needed, add other commands like "trim" or "colorchange" in similar fashion
-        # You can expand this section based on the commands provided
+        if command == 1:  # "stitch"
+            pattern.stitches.append((x, y))
+        elif command == 2:  # "jump"
+            pattern.jumps.append((x, y))
+        elif command == 3:  # "trim" (example)
+            pattern.trims.append((x, y))
+        elif command == 4:  # "colorchange" (example)
+            pattern.colorchanges.append((x, y))
 
     return pattern
 
