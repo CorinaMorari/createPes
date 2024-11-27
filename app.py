@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from pyembroidery import read, write_pes, EmbThread, EmbPattern
+from pyembroidery import read, write_pes, EmbThread
 import os
 import urllib.parse
 import json
@@ -15,8 +15,12 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Function to convert HEX to RGB
 def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    """Convert HEX color to RGB tuple."""
+    hex_color = hex_color.lstrip('#')  # Remove '#' if present
+    if len(hex_color) == 6:  # Ensure it's a 6-character hex
+        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    else:
+        raise ValueError(f"Invalid HEX color format: {hex_color}")
 
 # Endpoint to create PES file with updated colors
 @app.route('/create-pes', methods=['POST'])
@@ -43,13 +47,20 @@ def create_pes():
         pattern = read(dst_file_path)
 
         # Step 2: Convert the new colors from HEX to RGB
-        new_rgb_colors = [hex_to_rgb(hex_color) for hex_color in new_thread_colors]
+        new_rgb_colors = []
+        for hex_color in new_thread_colors:
+            try:
+                rgb = hex_to_rgb(hex_color)
+                new_rgb_colors.append(rgb)
+            except ValueError as e:
+                return jsonify({"error": f"Invalid HEX color: {hex_color}"}), 400
 
         # Step 3: Update the threads in the pattern with the new colors
         updated_threads = []
         for i, thread in enumerate(pattern.threadlist):
             if i < len(new_rgb_colors):  # Ensure the new colors list matches the thread count
                 new_rgb = new_rgb_colors[i]
+                print(f"Updating thread {i} with RGB: {new_rgb}")  # Debugging line to see RGB values
                 new_thread = EmbThread(new_rgb[0], new_rgb[1], new_rgb[2])
                 updated_threads.append(new_thread)
             else:
