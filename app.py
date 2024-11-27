@@ -56,19 +56,14 @@ def create_pes():
                 return jsonify({"error": f"Invalid HEX color: {hex_color}"}), 400
 
         # Step 3: Update the threads in the pattern with the new colors
-        updated_threads = []
         for i, thread in enumerate(pattern.threadlist):
             if i < len(new_rgb_colors):  # Ensure the new colors list matches the thread count
                 new_rgb = new_rgb_colors[i]
                 print(f"Updating thread {i} with RGB: {new_rgb}")  # Debugging line to see RGB values
-                # Create a new EmbThread object with updated color
-                new_thread = EmbThread(new_rgb[0], new_rgb[1], new_rgb[2])
-                updated_threads.append(new_thread)
+                # Set the color of the existing thread with new RGB values
+                thread.set_rgb_color(new_rgb[0], new_rgb[1], new_rgb[2])
             else:
-                updated_threads.append(thread)  # If no new color, keep the original thread
-
-        # Update the threads in the pattern
-        pattern.threadlist = updated_threads
+                print(f"Thread {i} remains unchanged")  # Debugging line for unchanged threads
 
         # Step 4: Save the new PES file
         pes_filename = 'updated_pattern.pes'
