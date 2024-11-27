@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from pyembroidery import EmbThread, EmbPattern, write_pes, read
+from pyembroidery import EmbThread, EmbPattern, write_pes
 from flask_cors import CORS
 import os
 import urllib.parse
@@ -20,52 +20,57 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
 
 
-# Function to update the threads based on updated hex colors
-def update_threads_with_hex(pattern, hex_colors, threads):
-    updated_threads = []
+# Function to create and return an updated PES pattern
+def create_pattern(stitches, threads, hex_colors):
+    # Create a new pattern
+    pattern = EmbPattern()
 
-    # Create new threads based on the updated hex colors
+    # Add threads based on the provided hex colors
+    updated_threads = []
     for i, hex_color in enumerate(hex_colors):
         rgb = hex_to_rgb(hex_color)
-        new_thread = EmbThread(rgb[0], rgb[1], rgb[2])  # Create a new thread using RGB values
+        new_thread = EmbThread(rgb[0], rgb[1], rgb[2])
         updated_threads.append(new_thread)
 
     # Apply the updated threads to the pattern
     pattern.threadlist = updated_threads
+
+    # Add stitches to the pattern
+    for stitch in stitches:
+        x, y, command = stitch['x'], stitch['y'], stitch['command']
+        pattern.add_stitch(x, y, command)
+
     return pattern
 
 
-# Route to handle the creation of PES file from an existing pattern with updated thread colors
-@app.route('/create-pes-from-existing', methods=['POST'])
-def create_pes_from_existing():
+# Route to handle creating PES file from provided stitches, threads, and hex_colors
+@app.route('/create-pes', methods=['POST'])
+def create_pes():
     data = request.json
-    pattern_file = data.get('pattern_file')  # The existing pattern (PES file) to be updated
-    hex_colors = data.get('hex_colors')  # The new hex colors to update threads
+    stitches = data.get('stitches')
+    threads = data.get('threads')
+    hex_colors = data.get('hex_colors')
 
-    if not pattern_file or not hex_colors:
-        return jsonify({"error": "Missing required parameters: 'pattern_file' or 'hex_colors'"}), 400
+    if not stitches or not threads or not hex_colors:
+        return jsonify({"error": "Missing required parameters: 'stitches', 'threads', or 'hex_colors'"}), 400
 
     try:
-        # Load the existing PES pattern
-        pattern_file_path = os.path.join(app.config['UPLOAD_FOLDER'], pattern_file)
-        pattern = read(pattern_file_path)
+        # Create the pattern from provided data
+        pattern = create_pattern(stitches, threads, hex_colors)
 
-        # Update threads based on the new hex colors
-        updated_pattern = update_threads_with_hex(pattern, hex_colors, pattern.threadlist)
+        # Generate the PES file
+        pes_filename = 'generated_pattern.pes'
+        pes_file_path = os.path.join(app.config['UPLOAD_FOLDER'], pes_filename)
+        write_pes(pattern, pes_file_path)
 
-        # Generate the updated PES file
-        updated_pes_filename = f'updated_{pattern_file}'
-        updated_pes_file_path = os.path.join(app.config['UPLOAD_FOLDER'], updated_pes_filename)
-        write_pes(updated_pattern, updated_pes_file_path)
-
-        # Construct the URL for the updated PES file
+        # Construct the URL for the PES file
         base_url = 'https://createpes.onrender.com'  # Adjust with your domain or API base URL
-        pes_url = f'{base_url}/uploads/{urllib.parse.quote(updated_pes_filename)}'
+        pes_url = f'{base_url}/uploads/{urllib.parse.quote(pes_filename)}'
 
         return jsonify({"pes_file_url": pes_url})
 
     except Exception as e:
-        return jsonify({"error": f"Failed to process pattern file: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to create PES file: {str(e)}"}), 500
 
 
 # Route to serve the generated PES file
