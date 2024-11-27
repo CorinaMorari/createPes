@@ -20,14 +20,21 @@ def hex_to_rgb(hex_color):
 # Endpoint to create PES file with updated colors
 @app.route('/create-pes', methods=['POST'])
 def create_pes():
-    data = request.json
-    dst_file_path = data.get('dst_file_path')  # Path to the DST file
-    new_thread_colors = data.get('new_thread_colors')  # New colors in HEX format, e.g., ["#FF5733", "#33FF57"]
+    # Check if a file is part of the request
+    if 'dst_file' not in request.files:
+        return jsonify({"error": "Missing DST file in request"}), 400
 
-    if not dst_file_path or not new_thread_colors:
-        return jsonify({"error": "Missing required parameters: 'dst_file_path' or 'new_thread_colors'"}), 400
+    dst_file = request.files['dst_file']  # The DST file uploaded by the user
+    new_thread_colors = request.json.get('new_thread_colors')  # New colors in HEX format, e.g., ["#FF5733", "#33FF57"]
+
+    if not new_thread_colors:
+        return jsonify({"error": "Missing required parameter: 'new_thread_colors'"}), 400
 
     try:
+        # Save the uploaded DST file temporarily
+        dst_file_path = os.path.join(app.config['UPLOAD_FOLDER'], dst_file.filename)
+        dst_file.save(dst_file_path)
+
         # Step 1: Read the DST file
         pattern = read(dst_file_path)
 
