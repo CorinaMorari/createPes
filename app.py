@@ -38,7 +38,14 @@ def create_pattern(stitches, threads, hex_colors):
     # Add stitches to the pattern
     for stitch in stitches:
         x, y, command = stitch['x'], stitch['y'], stitch['command']
-        pattern.add_stitch(x, y, command)
+        
+        # Add each stitch (if command is 'stitch', we need to specify it correctly)
+        if command == 'stitch':
+            pattern.add_stitch(x, y)
+        elif command == 'jump':
+            pattern.add_jump(x, y)
+        # If needed, add other commands like "trim" or "colorchange" in similar fashion
+        # You can expand this section based on the commands provided
 
     return pattern
 
@@ -64,7 +71,7 @@ def create_pes():
         write_pes(pattern, pes_file_path)
 
         # Construct the URL for the PES file
-        base_url = 'https://createpes.onrender.com'  # Adjust with your domain or API base URL
+        base_url = 'https://yourdomain.com'  # Adjust with your domain or API base URL
         pes_url = f'{base_url}/uploads/{urllib.parse.quote(pes_filename)}'
 
         return jsonify({"pes_file_url": pes_url})
