@@ -1,88 +1,59 @@
-from flask import Flask, request, jsonify
-from pyembroidery import write_pes, EmbThread, EmbPattern
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory
+from pyembroidery import EmbThread, EmbPattern, write_pes
 import os
+import urllib.parse
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable Cross-Origin Resource Sharing (CORS)
 
-# Configure upload folder
+# Configure upload folder for PES files
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Function to convert RGB to HEX format
-def rgb_to_hex(rgb):
-    return f'#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}'
+# Route to create PES file
+@app.route('/create-pes', methods=['POST'])
+def create_pes():
+    data = request.json
+    stitches = data.get('stitches')
+    threads = data.get('threads')
+    hex_colors = data.get('hex_colors')
 
-# Function to convert HEX to RGB format
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    if not stitches or not threads or not hex_colors:
+        return jsonify({"error": "Missing required parameters: 'stitches', 'threads', or 'hex_colors'"}), 400
 
-# Function to create PES file from provided data
-def create_pes_file(stitches, threads, hex_colors):
-    # Convert hex colors to RGB
-    thread_list = []
-    for color in hex_colors:
-        rgb = hex_to_rgb(color)
-        thread_list.append(EmbThread(rgb[0], rgb[1], rgb[2]))  # Create EmbThread for each color
-    
-    # Create EmbPattern object
+    # Create a new pattern
     pattern = EmbPattern()
 
-    # Add threads to pattern
-    for thread in thread_list:
+    # Add threads (adjusted to the provided color data)
+    for thread_data in threads:
+        thread = EmbThread(thread_data['r'], thread_data['g'], thread_data['b'])
         pattern.add_thread(thread)
 
-    # Add stitches to pattern
-    for stitch in stitches:
-        # Assuming the stitch object contains x, y, command
-        x, y, command = stitch['x'], stitch['y'], stitch['command']
-        
-        if command == "start":
-            pattern.add_stitch(x, y, "start")
-        elif command == "stitch":
-            pattern.add_stitch(x, y, "stitch")
-        elif command == "stop":
-            pattern.add_stitch(x, y, "stop")
-        elif command == "jump":
-            pattern.add_stitch(x, y, "jump")
+    # Add stitches (add your stitch logic here)
+    for stitch_data in stitches:
+        x, y, command = stitch_data['x'], stitch_data['y'], stitch_data['command']
+        pattern.add_stitch(x, y, command)
 
     # Generate PES file path
-    pes_file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'generated_pattern.pes')
+    pes_filename = 'generated_pattern.pes'
+    pes_file_path = os.path.join(app.config['UPLOAD_FOLDER'], pes_filename)
 
     # Write PES file
     write_pes(pattern, pes_file_path)
 
-    return pes_file_path
+    # Construct the URL to access the PES file
+    base_url = 'https://createpes.onrender.com'  # Adjust this to your base URL
+    pes_url = f'{base_url}/uploads/{urllib.parse.quote(pes_filename)}'
 
-# Route to create PES from stitches, threads, and colors
-@app.route('/create-pes', methods=['POST'])
-def create_pes():
-    data = request.json
+    return jsonify({"pes_file_url": pes_url})
 
-    stitches = data.get('stitches')
-    threads = data.get('threads')  # The threads parameter is passed but not directly used in this case
-    hex_colors = data.get('hex_colors')
 
-    if not stitches or not hex_colors:
-        return jsonify({"error": "Missing required parameters: stitches or hex_colors"}), 400
-
-    try:
-        # Create PES file
-        pes_file_path = create_pes_file(stitches, threads, hex_colors)
-
-        # URL for the generated PES file (adjust domain as needed)
-        base_url = 'https://dstupload.onrender.com'
-        pes_file_url = f'{base_url}/uploads/{os.path.basename(pes_file_path)}'
-
-        return jsonify({"pes_file_url": pes_file_url})
-    
-    except Exception as e:
-        return jsonify({"error": f"Failed to create PES file: {str(e)}"}), 500
+# Route to serve the generated PES file
+@app.route('/uploads/<filename>', methods=['GET'])
+def download_pes(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
